@@ -9,12 +9,9 @@ class RandomModel extends EObservable {
   }
 }
 
-abstract class IRandomEvent {
-
-}
+abstract class IRandomEvent {}
 
 class RandomNotifyEvent implements IRandomEvent {
   final String random;
   RandomNotifyEvent(this.random);
 }
-

@@ -1,5 +1,3 @@
-
-
 typedef void EventCallbackFunction<T>(T event);
 
 abstract class ISubscriber<T> {

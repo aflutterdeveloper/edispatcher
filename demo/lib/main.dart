@@ -77,7 +77,9 @@ class _HomePageState extends State<HomePage> with ESubscriber {
               },
               child: Text("random invoke"),
             ),
-            SizedBox(height: 30,),
+            SizedBox(
+              height: 30,
+            ),
             Text("random:$_randomText")
           ],
         ),

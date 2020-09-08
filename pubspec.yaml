@@ -1,8 +1,7 @@
 name: edispatcher
 description: event dispatcher
 version: 1.0.0
-author:
-homepage:
+homepage: https://github.com/aflutterdeveloper/edispatcher.git
 
 environment:
   sdk: ">=2.7.0 <3.0.0"

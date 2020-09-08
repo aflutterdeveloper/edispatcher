@@ -6,6 +6,7 @@ import 'package:edispatcher/i_observable.dart';
 import 'i_subscriber.dart';
 
 typedef e_dispatcher_logger = void Function(String tag, String message);
+
 class EObservable<T> implements ISubscriber<T>, IObservable<T> {
   StreamController<T> _controller = StreamController<T>.broadcast();
   Map<dynamic, StreamSubscription> _listeners =
@@ -25,7 +26,7 @@ class EObservable<T> implements ISubscriber<T>, IObservable<T> {
     }
   }
 
-  static e_dispatcher_logger logger; 
+  static e_dispatcher_logger logger;
 
   static void _listen(dynamic listener, EObservable dispatcher) {
     Set<EObservable> dispatchList = _observableMap[listener];
@@ -50,8 +51,7 @@ class EObservable<T> implements ISubscriber<T>, IObservable<T> {
   @override
   void onAll(listener, EventCallbackFunction<T> callback) {
     if (T == dynamic) {
-      _logger(
-          _tag, "EventDispatcher addListener reject, dynamic on broadcast");
+      _logger(_tag, "EventDispatcher addListener reject, dynamic on broadcast");
       return;
     }
 
@@ -143,11 +143,11 @@ class EObservable<T> implements ISubscriber<T>, IObservable<T> {
       _controller.close();
     }
   }
-  
+
   void _logger(String tag, String message) {
     if (null != logger) {
       logger(tag, message);
-    }  
+    }
   }
 }
 
