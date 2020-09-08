@@ -1,6 +1,6 @@
 name: edispatcher
-description: event dispatcher
-version: 1.0.0
+description: A tool class that is convenient for developers to implement event distribution
+version: 1.0.1
 homepage: https://github.com/aflutterdeveloper/edispatcher.git
 
 environment:

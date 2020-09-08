@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:edispatcher/e_subscriber.dart';
 import 'package:edispatcher/i_observable.dart';
 
 import 'i_subscriber.dart';

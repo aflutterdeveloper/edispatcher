@@ -1,6 +1,7 @@
-import 'package:demo/random_model.dart';
 import 'package:edispatcher/edispatcher.dart';
 import 'package:flutter/material.dart';
+
+import 'random_model.dart';
 
 void main() {
   runApp(App());
