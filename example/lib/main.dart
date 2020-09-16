@@ -43,12 +43,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with ESubscriber {
+  //observable object
   RandomModel _random = RandomModel();
   String _randomText = "";
 
   @override
   void initState() {
-    _random.onType<RandomNotifyEvent>(this, (event) {
+    //subscribe the RandomNotifyEvent event from _random.
+    subscribe<RandomNotifyEvent>(_random, (event) {
+      //event dispatched, refresh ui
       setState(() {
         _randomText = event.random;
       });
@@ -58,7 +61,7 @@ class _HomePageState extends State<HomePage> with ESubscriber {
 
   @override
   void dispose() {
-    _random.close();
+    _random.destroy();
     super.dispose();
   }
 

@@ -2,11 +2,9 @@ import 'dart:async';
 
 import 'package:edispatcher/i_observable.dart';
 
-import 'i_subscriber.dart';
-
 typedef e_dispatcher_logger = void Function(String tag, String message);
 
-class EObservable<T> implements ISubscriber<T>, IObservable<T> {
+class EObservable<T> implements IDispatcher<T>, IObservable<T> {
   StreamController<T> _controller = StreamController<T>.broadcast();
   Map<dynamic, StreamSubscription> _listeners =
       Map<dynamic, StreamSubscription>();
@@ -122,7 +120,7 @@ class EObservable<T> implements ISubscriber<T>, IObservable<T> {
   }
 
   @override
-  void close() {
+  void destroy() {
     _observableMap.forEach((key, value) {
       if (value.contains(this)) {
         value.remove(this);
