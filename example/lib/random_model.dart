@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:edispatcher/e_observable.dart';
 
-class RandomModel extends EObservable {
+class RandomModel extends EObservable<IRandomEvent> {
   void random() {
     final r = Random().nextInt(0x7FFFFFFF).toString();
     dispatch(RandomNotifyEvent(r));

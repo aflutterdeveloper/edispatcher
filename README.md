@@ -11,8 +11,8 @@ class RandomNotifyEvent implements IRandomEvent {
   RandomNotifyEvent(this.random);
 }
 
-//event observable
-class RandomModel extends EObservable {
+//IRandomEvent event observable
+class RandomModel extends EObservable<IRandomEvent> {
   void random() {
     final r = Random().nextInt(0x7FFFFFFF).toString();
     dispatch(RandomNotifyEvent(r));
