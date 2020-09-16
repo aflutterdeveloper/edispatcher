@@ -5,7 +5,6 @@ abstract class IDispatcher<T> {
   void destroy();
 }
 
-
 abstract class IObservable<T> {
   /// 监听EventDispatcher发出的所有事件
   /// param listener 事件接收者对象
