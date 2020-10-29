@@ -13,3 +13,63 @@ plugins.each { name, path ->
     include ":$name"
     project(":$name").projectDir = pluginDirectory
 }
+
+
+gradle.ext.flutter_path = "${flutterProjectRoot}"
+println gradle.ext.flutter_path
+
+def code = "//Fix Flutter Gradle repositories \n" +
+        "def static copyFlutterSdkGradle(project, src, dst) {\n" +
+        "    try {\n" +
+        "        println \"copyFlutterSdkGradle ::: file: \" + src\n" +
+        "        println \"copyFlutterSdkGradle ::: file: \" + dst\n" +
+        "\n" +
+        "        File fileSrc = new File(src)\n" +
+        "        if (fileSrc.exists()) {\n" +
+        "            project.getAnt().copy(file: src, toFile: dst)\n" +
+        "\n" +
+        "            if (!dst.exists()) {\n" +
+        "                println \"copyFlutterSdkGradle ::: file: \" + dst + \"not exist\"\n" +
+        "            }\n" +
+        "        } else {\n" +
+        "            println \"copyFlutterSdkGradle ::: file: \" + src + \"not exist\"\n" +
+        "        }\n" +
+        "    } catch (Throwable e) {\n" +
+        "\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "def static fixFlutterSdkGradleBug(src) {\n" +
+        "    println \"fixFlutterSdkGradleBug ::: file: \" + src\n" +
+        "    def content = src.getText('UTF-8')\n" +
+        "    if (!content.contains(\"Fix Flutter Gradle repositories \")) {\n" +
+        "        def updatedContent = src.getText('UTF-8')\n" +
+        "                .replaceAll(\"jcenter\\\\\\\\(\\\\\\\\)\", \"maven { url 'http://repo.yypm.com:8181/nexus/content/groups/public' }\")\n" +
+        "        src.write(updatedContent.toString(), 'UTF-8')\n" +
+        "    }\n" +
+        "}\n" +
+        "\n" +
+        "def sdk_gradle_path = flutterRoot + \"/packages/flutter_tools/gradle/flutter.gradle\"\n" +
+        "copyFlutterSdkGradle(project, sdk_gradle_path, project.file('flutter.gradle'))\n" +
+        "fixFlutterSdkGradleBug(project.file('flutter.gradle'))"
+
+def fileGradle = new File("${gradle.ext.flutter_path}/android", "build.gradle")
+def content = fileGradle.getText('UTF-8')
+if (!content.contains("Fix Flutter Gradle repositories")) {
+    def updatedFlutterGradle = fileGradle.getText('UTF-8')
+            .replaceAll("apply plugin: 'com.android.library'", "${code} \n\napply plugin: 'com.android.library'")
+            .replace("\"\$flutterRoot/packages/flutter_tools/gradle/flutter.gradle\"", "\"flutter.gradle\"")
+    fileGradle.write(updatedFlutterGradle.toString(), 'UTF-8')
+}
+
+def flutterSdkGradle = new File("${gradle.ext.flutter_path}/" +
+        ".flutter/packages/flutter_tools/gradle", "flutter.gradle")
+if (flutterSdkGradle.exists()) {
+    def flutterContent = flutterSdkGradle.getText('UTF-8')
+    if (!flutterContent.contains("Fix Flutter Gradle repositories")) {
+        def updatedFlutterGradle = flutterSdkGradle.getText('UTF-8')
+                .replaceAll("apply plugin: 'com.android.library'", "${code} \n\napply plugin: 'com.android.library'")
+                .replace("\"\$flutterRoot/packages/flutter_tools/gradle/flutter.gradle\"", "\"flutter.gradle\"")
+        flutterSdkGradle.write(updatedFlutterGradle.toString(), 'UTF-8')
+    }
+}

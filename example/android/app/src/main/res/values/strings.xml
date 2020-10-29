@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="facebook_app_id">364834974458962</string>
+    <string name="jp.naver.line.android.CONSUMER_KEY">1653843513</string>
+    <string name="com.google.android.CLIENT_ID">451047829061-pru1pht7g7kpf5og4if64kejtuo492cm.apps.googleusercontent.com</string>
+    <string name="default_push_channel_id">novel_push</string>
+    <string name="default_push_channel_name">追讀小說通知</string>
+</resources>

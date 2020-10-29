@@ -1,0 +1,16 @@
+//
+//  ios-notificationService-Release.xcconfig
+//  Runner
+//
+//  Created by Kin Wong on 2020/6/22.
+//  Copyright © 2020 The Chromium Authors. All rights reserved.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+#include "./Pods/Target Support Files/Pods-NotificationService/Pods-NotificationService.release.xcconfig"
+APP_BUNDLE_IDENTIFIER = anything
+PRODUCT_NAME = NotificationService
+BUNDLE_ID_SUFFIX = notificationService
+PRODUCT_BUNDLE_IDENTIFIER = ${APP_BUNDLE_IDENTIFIER}.${BUNDLE_ID_SUFFIX}
+PROVISIONING_PROFILE_SPECIFIER = anything

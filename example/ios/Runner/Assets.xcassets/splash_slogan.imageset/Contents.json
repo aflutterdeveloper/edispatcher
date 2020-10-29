@@ -1,0 +1,23 @@
+{
+  "images" : [
+    {
+      "filename" : "超夯小說，暢看無限.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "超夯小說，暢看無限@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "超夯小說，暢看無限@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

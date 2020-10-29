@@ -1,0 +1,4 @@
+[submodule ".flutter"]
+	path = .flutter
+	url = https://git.yy.com/midwares/flutterplugin/flutter
+	branch = v1.22.1

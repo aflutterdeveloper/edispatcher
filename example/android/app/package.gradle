@@ -1,0 +1,408 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+ext {
+    DEV_LINE = System.getenv("DEV_LINE") as String ?: "unknown"
+    BUILD_NUMBER = System.getenv("BUILD_NUMBER") as String ?: "1"
+}
+
+def isTrunk() {
+    return DEV_LINE.equals("trunk")
+}
+
+def isLocalBuild() {
+    return DEV_LINE.equals("unknown")
+}
+
+def isReleaseBuild() {
+    return version.contains("SNAPSHOT") == false
+}
+
+ext.isDebuggable = { isDebug ->
+    def isReleaseBuild = System.env.RELEASE_VERSION ? true : false
+    println "isReleaseBuild ${isReleaseBuild}"
+    def returnIsDebug = !isReleaseBuild && isDebug
+    println "returnIsDebug ${returnIsDebug}"
+    return returnIsDebug
+}
+
+String gKeyStore
+String gStorePass
+String gAlias
+String gKeyPass
+/**
+ * 签名
+ */
+task signApks {
+    doLast {
+        println "Signing begin"
+        File signFile = file(System.getenv('HOME') + "/.android/stonersign.properties")
+        println "signFile:" + signFile.absolutePath
+        if (signFile.canRead()) {
+            Properties p = new Properties()
+            p.load(new FileInputStream(signFile))
+            if (p != null
+                    && p.containsKey('key.store')
+                    && p.containsKey('key.store.password')
+                    && p.containsKey('key.alias')
+                    && p.containsKey('key.alias.password')) {
+
+                String keyStore = p['key.store']
+                String storePass = p['key.store.password']
+                String alias = p['key.alias']
+                String aliasPass = p['key.alias.password']
+
+                gKeyStore = keyStore
+                gStorePass = storePass
+                gAlias = alias
+                gKeyPass = aliasPass
+
+                ant.properties.keyFilePath = gKeyStore
+                ant.properties.storePassword = gStorePass
+                ant.properties.keyAlias = gAlias
+                ant.properties.keyPassword = gKeyPass
+
+                println "gKeyStore:" + gKeyStore
+
+                android.applicationVariants.all { variant ->
+                    variant.outputs.all { output ->
+                        def apk = output.outputFile
+                        println "---------------apk-name=" + apk + ",variant.name=" + variant.buildType.name;
+                        if (variant.buildType.name == "release") {
+                            def srcPath = apk
+                            def dstPath = new File(apk.parentFile, apk.name.replace("-unsigned", ""))
+                            println "Sign apk, source path: " + srcPath + ", destination path: " + dstPath
+//                            exec {
+//                                executable "jarsigner"
+//                                args "-digestalg", "SHA1", "-sigalg", "SHA1withDSA", "-sigfile", "CERT", "-keystore", keyStore,           \
+//                                          "-storepass", storePass, "-signedjar", dstPath, srcPath, alias
+//                            }
+                            exec {
+                                executable "jarsigner"
+                                args "-digestalg", "SHA1", "-sigalg", "MD5withRSA", "-keystore", keyStore,       \
+                                       "-storepass", storePass, "-signedjar", dstPath, srcPath, alias
+                            }
+                            outputFileName = dstPath.getName()
+                            apk.delete()
+                        }
+                    }
+                }
+            } else {
+                throw new GradleException('RELEASE_BUILD: Required properties ' +
+                        'in signing.properties are missing')
+            }
+        } else {
+            throw new GradleException('RELEASE_BUILD: signing.properties not found')
+        }
+    }
+}
+
+/**
+ * 对齐
+ */
+task zipAlignApks {
+    doLast {
+        println "ZipAlign begin"
+        File binFile = file(System.getenv('ANDROID_HOME') + "/build-tools/${build_tools_version}/zipalign")
+        println "ZipAlign apk, tools: " + binFile.absolutePath
+        android.applicationVariants.all { variant ->
+            variant.outputs.all { output ->
+                def apk = variant.outputs[0].outputFile
+                println "apkfile:${apk.absolutePath} is exist=${apk.exists()}"
+                if (variant.buildType.name == "release") {
+                    def srcPath = apk
+                    def dstPath = new File(apk.parentFile, apk.name.replace(".apk", "-zipalign.apk"))
+                    println "ZipAlign apk, source path: " + srcPath
+                    println "ZipAlign apk, destination path: " + dstPath
+                    exec {
+                        executable binFile
+                        args "-f", "4", srcPath, dstPath
+                    }
+                    outputFileName = dstPath.getName()
+                    apk.delete()
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 拷贝apk
+ */
+task copyApks(type: Copy) {
+    println "Copies APKs to the target directory!"
+    description = "Copies APKs to the target directory"
+
+    /*file('../../').listFiles().each {
+        println it
+    }*/
+
+    from('../../build/app/outputs/apk/release') {
+        exclude '**/*-unaligned.apk'
+        exclude '**/*-unsigned.apk'
+    }
+
+    rename '(.*).apk', "${apk_name}-${version}-${BUILD_NUMBER}-official.apk"
+    into 'target'
+}
+
+/**
+ * 拷贝mapping
+ */
+task copyProguard(type: Copy) {
+    println "Copies Proguard mappings to the target directory!"
+    description = "Copies Proguard mappings to the target directory"
+
+    from '../../build/app/outputs/mapping/release/mapping.txt'
+    into 'target/proguard'
+
+    doLast {
+        println "files of target"
+        file('target').listFiles().each {
+            println it
+            if (it.isDirectory()) {
+                it.listFiles().each {
+                    println it
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 压缩APK
+ */
+def resGuard = { name ->
+    //减去.apk
+    def guardJarFile = file('./AndResGuard/AndResGuard-cli-1.1.8.jar')
+    def guardConfigFile = file('./AndResGuard/config.xml')
+    def originApkFile = file("./target/${name}")
+    def outputDir = file("./target/outapk")
+
+    def zipPath
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        zipPath = file('./AndResGuard/7-Zip/7za.exe')
+    } else {
+        zipPath = file('./AndResGuard/bin/7za')
+    }
+    def zipalignPath = file(System.getenv('ANDROID_HOME') + "/build-tools/${build_tools_version}/zipalign")
+    // 开始执行压缩命令
+    println "guardJarFile " + guardJarFile
+    println "zipPath " + zipPath
+    println "originApkFile " + originApkFile
+    println "ZipAlign apk, tools: " + zipalignPath.absolutePath
+//    def keystorepath = 'D:/project/Arco/ilivegame-android/app/keystore/release.jks'
+    def cmd = """java -jar ${guardJarFile} ${originApkFile} -config ${guardConfigFile} 
+                    -out ${outputDir} -signature ${gKeyStore} ${gStorePass} ${gKeyPass} ${gAlias}
+                    -7zip ${zipPath} -zipalign ${zipalignPath}"""
+    println "Zip cmd: " + cmd
+    def proc = cmd.execute()
+    proc.waitFor()
+    println "return code: ${proc.exitValue()}" + ", stderr: ${proc.err.text}" + " stdout: ${proc.in.text}"
+    if (proc.exitValue() != 0) {
+        throw new GradleException('apkresguard failed')
+    }
+}
+
+/**
+ * 复制APK
+ */
+def copyApkFile = { srcFile, dstFilePath ->
+    def inFile = file(srcFile)
+    println "inFile " + inFile.absolutePath
+    def outFile = new File(dstFilePath)
+    outFile.getParentFile().mkdirs()
+    println "outFile " + outFile
+    outFile.withOutputStream { os -> inFile.withInputStream { ins -> os << ins } }
+}
+
+/**
+ * gradlew  compressApp
+ * 对包进行微信资源压缩
+ */
+task apkResGuard {
+    doLast {
+        //遍历apk文件
+        println "压缩开始"
+        file('./target').listFiles().each {
+            println it
+            if (it.name.endsWith(".apk")) {
+                println "**************${it.name}******************"
+                def fileName = it.name.substring(0, it.name.length() - 4)
+                def file = file("./target/artifacts/${fileName}-${"origin"}.apk")
+                copyApkFile.call(it.getAbsolutePath(), file.getAbsolutePath())
+                resGuard.call(it.name)
+                it.delete()
+                println "********${it.name}压缩完成***********"
+            }
+            println "拷贝开始 —> 从 ./target/outapk 拷贝 apk 到 ./target 并重命名"
+            file('./target/outapk').listFiles().each {
+                println it
+                if (it.name.endsWith("_signed_7zip_aligned.apk")) {
+                    println "**************${it.name}******************"
+                    def fileName = it.name.substring(0, it.name.length() - 4).replace("_signed_7zip_aligned", "")
+                    def file = file("./target/${fileName}.apk")
+                    copyApkFile.call(it.getAbsolutePath(), file.getAbsolutePath())
+                    it.delete()
+                    println "********${it.name}拷贝完成***********"
+                }
+            }
+            println "拷贝结束"
+        }
+        println "压缩完成"
+    }
+}
+
+/**
+ * 测试APK数字签名
+ */
+task signTestApks {
+    doLast {
+        println "Signing TestApk begin"
+        File signFile = file(System.getenv('HOME') + "/.android/sign.properties")
+//         File signFile = file("./AndResGuard/yymobilesign.properties")
+        if (signFile.canRead()) {
+            Properties p = new Properties()
+            p.load(new FileInputStream(signFile))
+            if (p != null
+                    && p.containsKey('key.store')
+                    && p.containsKey('key.store.password')
+                    && p.containsKey('key.alias')
+                    && p.containsKey('key.alias.password')) {
+
+                String keyStore = p['key.store']
+                String storePass = p['key.store.password']
+                String alias = p['key.alias']
+
+                gKeyStore = keyStore
+                gStorePass = storePass
+                gAlias = alias
+                gKeyPass = p['key.alias.password']
+
+                ant.properties.keyFilePath = gKeyStore
+                ant.properties.storePassword = gStorePass
+                ant.properties.keyAlias = gAlias
+                ant.properties.keyPassword = gKeyPass
+
+                android.testVariants.each { variant ->
+                    def apk = variant.outputs[0].outputFile
+                    println "---------------test-apk-name=" + apk + ",variant.name=" + variant.buildType.name;
+                    if (variant.buildType.name == "release") {
+                        def srcPath = apk
+                        def dstPath = new File('./target', "client-release-androidTest-signed.apk")
+                        println "Sign apk, source path: " + srcPath + ", destination path: " + dstPath
+//                         exec {
+//                             executable "jarsigner"
+//                             args "-digestalg", "SHA1", "-sigalg", "SHA1withDSA", "-sigfile", "CERT", "-keystore", keyStore,     \
+//                                    "-storepass", storePass, "-signedjar", dstPath, srcPath, alias
+//                         }
+                        exec {
+                            executable "jarsigner"
+                            args "-digestalg", "SHA1", "-sigalg", "MD5withRSA", "-keystore", keyStore,       \
+                                       "-storepass", storePass, "-signedjar", dstPath, srcPath, alias
+                        }
+                        //variant.outputs[0].outputFile = dstPath
+//                        apk.delete()
+                    } else {
+                        println "no release androidTest apk found."
+                    }
+                }
+            } else {
+                throw new GradleException('RELEASE_BUILD: Required properties ' +
+                        'in signing.properties are missing')
+            }
+        } else {
+            // throw new GradleException('RELEASE_BUILD: signing.properties not found')
+        }
+        println "Signing TestApk finished."
+    }
+}
+
+task cleanProject {
+    doLast {
+        println "cleanProject start"
+        file('target').listFiles().each {
+            println it
+            if (it.isDirectory()) {
+                it.deleteDir()
+            } else {
+                it.delete()
+            }
+        }
+        println "cleanProject end"
+    }
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name == 'clean') {
+        clean.finalizedBy cleanProject
+    }
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name == 'assembleRelease') {
+        assembleRelease.finalizedBy signApks
+        signApks.finalizedBy zipAlignApks
+        zipAlignApks.finalizedBy copyApks
+        copyApks.finalizedBy copyProguard
+        //copyProguard.finalizedBy apkResGuard
+
+    } else if (task.name == 'assembleReleaseAndroidTest' && project.properties['open_autotest_compilation'] != "0" && !isReleaseBuild()) {
+        apkResGuard.finalizedBy task
+        task.finalizedBy "signTestApks"
+//        task.finalizedBy getTestCases
+    }
+}
+
+//tasks.whenTaskAdded { task ->
+//    if (task.name == "ndkBuild") {
+//        task.finalizedBy "packSymbolSo"
+//    }
+//}
+
+
+/**
+ * APK加壳
+ */
+task encryptApks {
+    doLast {
+        println "Encrypt begin"
+        File binFile = file(System.getenv("YYAPKTOOLS_HOME") + "/yyapkencrypt/yyapkencrypt.sh")
+        println "Encrypt apk, tools: " + binFile.absolutePath
+        if (binFile.exists()) {
+            android.applicationVariants.all { variant ->
+                variant.outputs.all { output ->
+                    def apk = variant.outputs[0].outputFile
+                    if (variant.buildType.name == "release") {
+                        def srcPath = apk
+                        def dstPath = new File(apk.parentFile, apk.name.replace(".apk", "-encrypted.apk"))
+                        println "Encrypt apk, source path: " + srcPath + ", destination path: " + dstPath
+                        exec {
+                            executable binFile
+                            args srcPath, dstPath
+                        }
+                        outputFileName = dstPath.getName()
+                        if (!apk.name.contains("official")) {
+                            println "detele apkfile:" + apk
+                            apk.delete()
+                        }
+                    }
+                }
+            }
+        } else {
+            throw new GradleException('Encrypt tool was not found')
+        }
+    }
+}
+
+/**
+ * 上传符号表so
+ */
+//task packSymbolSo(type: Tar) {
+//    destinationDir = file("${rootDir}/target")
+//    baseName = "stoner_flutter"
+//    compression = Compression.GZIP
+//    extension = "tar.gz"
+//    from(new File(buildDir, "obj/local"))
+//    include("**/*.so")
+//    exclude("**/objs")
+//}
